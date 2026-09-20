@@ -2,7 +2,7 @@
 
 Official first-party ecosystem packages for GraphX.
 
-The GraphX engine lives separately in the `graphx2` repository. Packages here consume GraphX through its public API and may evolve together in this Pub workspace.
+The GraphX engine lives separately in [GraphX 2](https://github.com/roipeker/graphx2). Packages here consume GraphX through its public API and may evolve together in this Pub workspace.
 
 ## Packages
 
