@@ -1,0 +1,29 @@
+analyzer:
+  exclude:
+    - '**/build/**'
+    - '**/android/**'
+    - '**/ios/**'
+    - '**/web/**'
+    - '**/windows/**'
+    - '**/macos/**'
+    - '**/linux/**'
+  errors:
+    avoid_print: ignore
+    avoid_single_cascade_in_expression_statements: ignore
+    curly_braces_in_flow_control_structures: ignore
+    implicit_call_tearoffs: ignore
+    no_leading_underscores_for_local_identifiers: ignore
+    prefer_final_fields: ignore
+    prefer_initializing_formals: ignore
+    prefer_interpolation_to_compose_strings: ignore
+    unnecessary_brace_in_string_interps: ignore
+    unnecessary_import: ignore
+    unnecessary_library_name: ignore
+    use_full_hex_values_for_flutter_colors: ignore
+    use_null_aware_elements: ignore
+    use_super_parameters: ignore
+include: package:flutter_lints/flutter.yaml
+
+formatter:
+  page_width: 100
+  trailing_commas: preserve
