@@ -7,3 +7,4 @@ The GraphX engine lives separately in [GraphX 2](https://github.com/roipeker/gra
 ## Packages
 
 - `graphx_paths` — retained geometric paths and allocation-aware spatial sampling.
+- `graphx_motion` — allocation-aware tweens, retained timelines, keyframes, stagger, and physics for GraphX.
