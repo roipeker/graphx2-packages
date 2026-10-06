@@ -23,7 +23,7 @@ dependencies:
       url: https://github.com/roipeker/graphx2-packages.git
       path: packages/graphx_atlas
       tag_pattern: v{{version}}
-    version: ^0.1.0-dev.2
+    version: ^0.1.0-dev.3
 ```
 
 If the application also imports GraphX directly, declare GraphX using the same

@@ -2,6 +2,10 @@
 
 Official first-party ecosystem packages for [GraphX 2](https://github.com/roipeker/graphx2).
 
+These packages are consumed directly from this public GitHub monorepo. Dart
+3.9+ Git tag version solving keeps GraphX core and ecosystem packages
+compatible without hard-coding one literal Git ref into every dependency.
+
 ## Packages
 
 - `graphx_paths` — retained geometric paths and allocation-aware spatial sampling.
@@ -10,44 +14,96 @@ Official first-party ecosystem packages for [GraphX 2](https://github.com/roipek
 - `graphx_particles` — packed retained particle emitters, fields, constraints, trails, and secondary effects.
 - `graphx_arcade` — small deterministic fixed-step 2D arcade physics.
 
-## Consuming from GitHub
+## Install
 
-The ecosystem uses Dart 3.9+ Git tag version solving. Do not mix literal Git
-`ref` values such as `main` and `v2.0.0-dev.2` for the same package: Pub
-treats those as different dependency sources.
+Use `tag_pattern` plus a normal version constraint. Do not mix literal
+`ref: main` / tag refs for the same package in the dependency graph; Pub
+treats those as different sources.
 
-Use `tag_pattern` plus a normal version constraint for both GraphX core and
-GraphX ecosystem packages:
+If your app imports GraphX directly:
 
 ```yaml
-dependencies:
-  graphx:
-    git:
-      url: https://github.com/roipeker/graphx2.git
-      tag_pattern: v{{version}}
-    version: ^2.0.0-dev.2
-
-  graphx_atlas:
-    git:
-      url: https://github.com/roipeker/graphx2-packages.git
-      path: packages/graphx_atlas
-      tag_pattern: v{{version}}
-    version: ^0.1.0-dev.2
+graphx:
+  git:
+    url: https://github.com/roipeker/graphx2.git
+    tag_pattern: v{{version}}
+  version: ^2.0.0-dev.2
 ```
 
-Pub can then select one compatible tagged GraphX revision for the entire
-dependency graph. Applications should commit their `pubspec.lock` for exact
-reproducibility.
+Add only the ecosystem packages you need.
 
-The current coordinated baselines are:
+### graphx_paths
+
+```yaml
+graphx_paths:
+  git:
+    url: https://github.com/roipeker/graphx2-packages.git
+    path: packages/graphx_paths
+    tag_pattern: v{{version}}
+  version: ^0.1.0-dev.3
+```
+
+### graphx_motion
+
+```yaml
+graphx_motion:
+  git:
+    url: https://github.com/roipeker/graphx2-packages.git
+    path: packages/graphx_motion
+    tag_pattern: v{{version}}
+  version: ^0.1.0-dev.3
+```
+
+### graphx_atlas
+
+```yaml
+graphx_atlas:
+  git:
+    url: https://github.com/roipeker/graphx2-packages.git
+    path: packages/graphx_atlas
+    tag_pattern: v{{version}}
+  version: ^0.1.0-dev.3
+```
+
+### graphx_particles
+
+```yaml
+graphx_particles:
+  git:
+    url: https://github.com/roipeker/graphx2-packages.git
+    path: packages/graphx_particles
+    tag_pattern: v{{version}}
+  version: ^0.1.0-dev.3
+```
+
+### graphx_arcade
+
+```yaml
+graphx_arcade:
+  git:
+    url: https://github.com/roipeker/graphx2-packages.git
+    path: packages/graphx_arcade
+    tag_pattern: v{{version}}
+  version: ^0.1.0-dev.3
+```
+
+Then run:
+
+```bash
+flutter pub get
+```
+
+Applications should commit `pubspec.lock` for exact reproducibility.
+
+Current public baselines:
 
 - GraphX core: `v2.0.0-dev.2`
-- GraphX package set: `v0.1.0-dev.2`
+- GraphX package set: `v0.1.0-dev.3`
 
-## Local development
+## Unreleased local development
 
-For work against local checkouts, keep the committed dependency declarations
-above and use an ignored `pubspec_overrides.yaml`:
+Keep the committed declarations above. For local GraphX work, use an ignored
+`pubspec_overrides.yaml`:
 
 ```yaml
 dependency_overrides:
@@ -55,9 +111,9 @@ dependency_overrides:
     path: ../graphx
 ```
 
-A root project may also temporarily override GraphX to `main` when explicitly
-testing unreleased core work. Root overrides replace the transitive source
-consistently; package manifests themselves must remain version-solved.
+A root app can also temporarily override GraphX to `main` when deliberately
+testing unreleased core changes. Root overrides replace the source consistently;
+public package manifests themselves remain version-solved.
 
 ## Validation
 
@@ -65,5 +121,5 @@ consistently; package manifests themselves must remain version-solved.
 ./tool/check.sh
 ```
 
-This resolves the workspace, verifies the dependency-source policy, analyzes
-the monorepo, and runs each package's tests.
+This verifies dependency-source policy, resolves the workspace, analyzes it,
+and runs every package test suite.

@@ -24,7 +24,7 @@ for name in ("graphx_motion", "graphx_particles"):
     text = pubspec.read_text()
     if "graphx_paths:" not in text:
         errors.append(f"{pubspec.relative_to(root)} is missing graphx_paths")
-    elif "version: ^0.1.0-dev.2" not in text:
+    elif "version: ^0.1.0-dev.3" not in text:
         errors.append(
             f"{pubspec.relative_to(root)} must version-solve graphx_paths"
         )

@@ -1,7 +1,7 @@
 name: graphx_motion
 description: Allocation-aware motion, timelines, and physics primitives for GraphX.
 repository: https://github.com/roipeker/graphx2-packages
-version: 0.1.0-dev.2
+version: 0.1.0-dev.3
 publish_to: none
 
 resolution: workspace
@@ -23,7 +23,7 @@ dependencies:
       url: https://github.com/roipeker/graphx2-packages.git
       path: packages/graphx_paths
       tag_pattern: v{{version}}
-    version: ^0.1.0-dev.2
+    version: ^0.1.0-dev.3
 
 dev_dependencies:
   flutter_test:

@@ -1,7 +1,7 @@
 name: graphx_paths
 description: Retained geometric paths and allocation-aware spatial sampling for GraphX.
 repository: https://github.com/roipeker/graphx2-packages
-version: 0.1.0-dev.2
+version: 0.1.0-dev.3
 publish_to: none
 
 resolution: workspace
