@@ -16,12 +16,12 @@ dependencies:
   graphx:
     git:
       url: https://github.com/roipeker/graphx2.git
-      ref: v2.0.0-dev.1
+      ref: v2.0.0-dev.2
   graphx_paths:
     git:
       url: https://github.com/roipeker/graphx2-packages.git
       path: packages/graphx_paths
-      ref: main
+      ref: v0.1.0-dev.1
 
 dev_dependencies:
   flutter_test:

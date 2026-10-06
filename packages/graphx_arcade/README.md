@@ -170,16 +170,9 @@ The steady-state design avoids transient geometry allocation during integration,
 
 Performance claims beyond that architectural shape should come from package benchmarks rather than assumptions.
 
-## Migration reference
-
-The original Satechi package was exercised by focused Labs for gravity/bounce,
-kinematic pointer paddles, and fast-ball CCD. Those scenarios remain useful
-behavior references for this GraphX port.
-
 ## Acceptance games
 
-The Satechi playground games were architecture pressure tests rather than a
-separate game framework, and remain useful GraphX acceptance cases:
+Small arcade games are useful architecture pressure tests for this package:
 
 - **Breakout** exercises high restitution, fast-ball CCD, paddle kinematics, contact-driven destruction and rapid body churn.
 - **Platformer** exercises gravity, grounded/contact state, moving kinematic platforms, sensors and camera/world-space composition.

@@ -69,7 +69,7 @@ extension GTextureAtlasAssets on GAssets {
   }
 }
 
-/// Decodes TexturePacker JSON metadata into Satechi's core atlas primitive.
+/// Decodes TexturePacker JSON metadata into GraphX's core atlas primitive.
 ///
 /// Supports the common hash and array frame layouts. The supplied [page] is
 /// borrowed; the returned atlas does not own or dispose it.

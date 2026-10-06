@@ -16,7 +16,7 @@ dependencies:
   graphx:
     git:
       url: https://github.com/roipeker/graphx2.git
-      ref: v2.0.0-dev.1
+      ref: v2.0.0-dev.2
 
 dev_dependencies:
   flutter_test:

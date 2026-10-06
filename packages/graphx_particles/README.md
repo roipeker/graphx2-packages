@@ -105,7 +105,7 @@ emitter's previous running state afterward.
 
 ## Performance model
 
-The package preserves the proven Satechi architecture:
+The package uses a packed, allocation-aware runtime architecture:
 
 - fixed-capacity structure-of-arrays simulation storage;
 - swap-remove active slots;
