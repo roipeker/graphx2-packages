@@ -50,7 +50,11 @@ printf %s "$SERVICE_ID" | shasum -a 256
 
 Take the first 12 hex characters, uppercase them, and add `_<HASH>._tcp` under `NSBonjourServices`.
 
-Enable the **Access Wi-Fi Information** capability for the app target so its provisioning profile contains `com.apple.developer.networking.wifi-info`. The optional high-speed hotspot path additionally needs `NSLocationWhenInUseUsageDescription` and the **Hotspot Configuration** capability.
+The baseline Bluetooth / local-network path does not require extra Xcode capabilities beyond the `Info.plist` declarations above. If your app needs Wi-Fi network information/state, enable **Access Wi-Fi Information**. The optional high-speed hotspot path additionally needs `NSLocationWhenInUseUsageDescription` and the **Hotspot Configuration** capability.
+
+## Device acceptance
+
+A permanent physical-device smoke app lives in `example/`. Run it on two Android/iOS devices, tap **HOST** on one and **JOIN** on the other, then use **SEND** to verify byte delivery. This is the canonical transport acceptance path; no temporary probe project or local package override is required.
 
 ## Current scope
 

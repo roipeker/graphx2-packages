@@ -3,3 +3,7 @@
 pubspec_overrides.yaml
 
 **/build/
+
+# Generated SwiftPM state
+**/.swiftpm/
+**/xcshareddata/swiftpm/

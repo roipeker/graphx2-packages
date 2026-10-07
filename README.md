@@ -99,7 +99,7 @@ graphx_connect:
     url: https://github.com/roipeker/graphx2-packages.git
     path: packages/graphx_connect
     tag_pattern: v{{version}}
-  version: ^0.1.0-dev.7
+  version: ^0.1.0-dev.8
 ```
 
 Then run:
@@ -114,7 +114,7 @@ Current public baselines:
 
 - GraphX core: `v2.0.0-dev.2`
 - Existing GraphX packages: `v0.1.0-dev.3`
-- Connect family: `v0.1.0-dev.7`
+- Connect family: `v0.1.0-dev.8`
 
 ## Unreleased local development
 
