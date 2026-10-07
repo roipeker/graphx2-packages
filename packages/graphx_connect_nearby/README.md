@@ -18,7 +18,7 @@ The service ID must be stable and identical on both devices. A reverse-domain ap
 
 ## Android
 
-The plugin uses `com.google.android.gms:play-services-nearby:19.5.0`, minSdk 24. Its manifest declares the required Bluetooth/Wi-Fi/location/local-network permissions and the plugin requests dangerous permissions before discovery/advertising. No API key is required.
+The plugin uses `com.google.android.gms:play-services-nearby:19.5.0`, minSdk 24. Its manifest declares the required Bluetooth/Wi-Fi/location/local-network permissions and the plugin requests dangerous permissions before discovery/advertising. `ACCESS_WIFI_STATE` and `CHANGE_WIFI_STATE` are deliberately left uncapped because current P2P advertising on newer Android releases still checks them. No API key is required.
 
 If permission is denied, the operation fails explicitly; Connect does not silently switch transport.
 
@@ -50,7 +50,7 @@ printf %s "$SERVICE_ID" | shasum -a 256
 
 Take the first 12 hex characters, uppercase them, and add `_<HASH>._tcp` under `NSBonjourServices`.
 
-The optional high-speed iOS hotspot path additionally needs `NSLocationWhenInUseUsageDescription`, Hotspot Configuration, and Access Wi-Fi Information capabilities.
+Enable the **Access Wi-Fi Information** capability for the app target so its provisioning profile contains `com.apple.developer.networking.wifi-info`. The optional high-speed hotspot path additionally needs `NSLocationWhenInUseUsageDescription` and the **Hotspot Configuration** capability.
 
 ## Current scope
 
