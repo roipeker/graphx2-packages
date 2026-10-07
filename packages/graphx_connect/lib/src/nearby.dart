@@ -64,17 +64,10 @@ final class GNearbyConnect {
     _ensureSupported();
     final normalized = _validName(sessionName, 'sessionName');
     final sessionId = _randomId();
-    final context = _sessionContext(
-      sessionId: sessionId,
-      sessionName: normalized,
-      protocolVersion: gConnectProtocolVersion,
-    );
-
     final host = await _transport.host(
       sessionId: sessionId,
       sessionName: normalized,
       protocolVersion: gConnectProtocolVersion,
-      endpointInfo: context,
     );
     return GSessionInternal.host(
       host: host,
@@ -158,13 +151,18 @@ final class _NearbyTransport
     await _NearbyBridge.instance.prepare(instanceId);
   }
 
+  @override
   Future<GTransportHost> host({
     required String sessionId,
     required String sessionName,
     required int protocolVersion,
-    required Uint8List endpointInfo,
   }) async {
     await _prepare();
+    final endpointInfo = _sessionContext(
+      sessionId: sessionId,
+      sessionName: sessionName,
+      protocolVersion: protocolVersion,
+    );
     final host = _NearbyHost(instanceId);
     try {
       await _NearbyBridge.instance.startAdvertising(instanceId, endpointInfo);
@@ -173,17 +171,6 @@ final class _NearbyTransport
       await host.dispose();
       rethrow;
     }
-  }
-
-  @override
-  Future<GTransportHost> host({
-    required String sessionId,
-    required String sessionName,
-    required int protocolVersion,
-  }) {
-    throw UnsupportedError(
-      'Nearby hosting requires GraphX session endpoint metadata.',
-    );
   }
 
   @override
