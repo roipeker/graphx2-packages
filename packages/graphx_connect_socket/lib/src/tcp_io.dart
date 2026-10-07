@@ -7,7 +7,7 @@ import 'package:graphx_connect/graphx_connect_spi.dart';
 
 const bool tcpSupported = true;
 
-Future<GTransportConnection> connectTcp(
+Future<GTransportConnection> connectRawTcp(
   String host,
   int port, {
   required Duration timeout,
@@ -20,12 +20,67 @@ Future<GTransportConnection> connectTcp(
   }
   final socket = await Socket.connect(host, port, timeout: timeout);
   socket.setOption(SocketOption.tcpNoDelay, true);
-  return _TcpConnection(socket);
+  return _RawTcpConnection(socket);
 }
 
-final class _TcpConnection implements GTransportConnection {
-  _TcpConnection(this.socket) {
-    _subscription = socket.listen(
+Future<GTransportConnection> connectTcp(
+  String host,
+  int port, {
+  required Duration timeout,
+}) async {
+  final raw = await connectRawTcp(host, port, timeout: timeout);
+  return frameTcpConnection(raw);
+}
+
+GTransportConnection frameTcpConnection(GTransportConnection raw) {
+  return _FramedTcpConnection(raw);
+}
+
+final class _RawTcpConnection implements GTransportConnection {
+  _RawTcpConnection(this.socket);
+
+  final Socket socket;
+  bool _closed = false;
+
+  @override
+  Stream<Object> get messages => socket.map<Object>(
+    (data) => Uint8List.fromList(data),
+  );
+
+  @override
+  void send(Object message) {
+    if (_closed) throw StateError('TCP connection is closed.');
+    if (message is String) {
+      socket.add(utf8.encode(message));
+      return;
+    }
+    if (message is Uint8List) {
+      socket.add(message);
+      return;
+    }
+    if (message is List<int>) {
+      socket.add(message);
+      return;
+    }
+    throw ArgumentError.value(
+      message,
+      'message',
+      'Expected String, Uint8List, or List<int>.',
+    );
+  }
+
+  @override
+  Future<void> close([int? code, String? reason]) async {
+    if (_closed) return;
+    _closed = true;
+    await socket.flush();
+    await socket.close();
+  }
+}
+
+final class _FramedTcpConnection implements GTransportConnection {
+  _FramedTcpConnection(this.raw) {
+    _subscription = raw.messages.listen(
       _onData,
       onError: _messages.addError,
       onDone: _closeMessages,
@@ -38,19 +93,28 @@ final class _TcpConnection implements GTransportConnection {
   static const int _binary = 1;
   static const int _maxFrameBytes = 64 * 1024 * 1024;
 
-  final Socket socket;
+  final GTransportConnection raw;
   final _messages = StreamController<Object>.broadcast(sync: true);
-  late final StreamSubscription<Uint8List> _subscription;
+  late final StreamSubscription<Object> _subscription;
   final List<int> _buffer = <int>[];
   bool _closed = false;
 
   @override
   Stream<Object> get messages => _messages.stream;
 
-  void _onData(Uint8List data) {
+  void _onData(Object event) {
     if (_closed) return;
-    _buffer.addAll(data);
+    if (event is! Uint8List) {
+      _messages.addError(
+        FormatException(
+          'Raw TCP produced non-binary data: ${event.runtimeType}.',
+        ),
+      );
+      unawaited(close());
+      return;
+    }
 
+    _buffer.addAll(event);
     while (_buffer.length >= _headerBytes) {
       final type = _buffer[0];
       final length = (_buffer[1] << 24) | (_buffer[2] << 16) | (_buffer[3] << 8) | _buffer[4];
@@ -116,11 +180,12 @@ final class _TcpConnection implements GTransportConnection {
       );
     }
 
-    final header = ByteData(_headerBytes);
+    final framed = Uint8List(_headerBytes + payload.length);
+    final header = ByteData.sublistView(framed, 0, _headerBytes);
     header.setUint8(0, type);
     header.setUint32(1, payload.length, Endian.big);
-    socket.add(header.buffer.asUint8List());
-    socket.add(payload);
+    framed.setRange(_headerBytes, framed.length, payload);
+    raw.send(framed);
   }
 
   @override
@@ -128,8 +193,7 @@ final class _TcpConnection implements GTransportConnection {
     if (_closed) return;
     _closed = true;
     await _subscription.cancel();
-    await socket.flush();
-    await socket.close();
+    await raw.close(code, reason);
     await _closeMessages();
   }
 

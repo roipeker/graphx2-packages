@@ -156,7 +156,171 @@ final class GMessage {
   bool get isBinary => bytes != null;
 }
 
-/// Active host or joined connection.
+enum GConnectionState { connected, upgraded, closed }
+
+/// One raw transport connection.
+///
+/// No GraphX protocol is spoken at this layer. Messages are exactly the
+/// transport's native payloads: WebSocket text/binary frames, TCP byte chunks,
+/// or equivalent payloads for future transports.
+///
+/// A raw connection may be upgraded once to a [GSession] before its raw
+/// [messages] stream or send methods are used.
+final class GConnection {
+  GConnection._({
+    required GConnectTransport transport,
+    required Object endpoint,
+    required GTransportConnection connection,
+    GConnectTransport? sessionTransport,
+    GTransportConnection Function(GTransportConnection)? sessionAdapter,
+    required String localPeerId,
+    required String localPeerName,
+    required GBinaryMode binaryMode,
+  }) : _transport = transport,
+       _sessionTransport = sessionTransport ?? transport,
+       _sessionAdapter = sessionAdapter,
+       _endpoint = endpoint,
+       _connection = connection,
+       _localPeerId = localPeerId,
+       _localPeerName = localPeerName,
+       _binaryMode = binaryMode;
+
+  final GConnectTransport _transport;
+  final GConnectTransport _sessionTransport;
+  final GTransportConnection Function(GTransportConnection)? _sessionAdapter;
+  final Object _endpoint;
+  GTransportConnection? _connection;
+  final String _localPeerId;
+  final String _localPeerName;
+  final GBinaryMode _binaryMode;
+
+  GConnectionState _state = GConnectionState.connected;
+  bool _rawClaimed = false;
+
+  GConnectionState get state => _state;
+  bool get connected => _state == GConnectionState.connected;
+  bool get closed => _state == GConnectionState.closed;
+  bool get upgraded => _state == GConnectionState.upgraded;
+
+  /// Native incoming payloads from the underlying transport.
+  Stream<Object> get messages {
+    _claimRaw();
+    return _requireConnection().messages;
+  }
+
+  /// Sends one native transport payload.
+  void send(Object message) {
+    _claimRaw();
+    _requireConnection().send(message);
+  }
+
+  void sendText(String text) => send(text);
+
+  void sendBytes(Uint8List bytes) => send(bytes);
+
+  /// Upgrades this raw connection to the GraphX peer/session protocol.
+  ///
+  /// This must be called before reading [messages] or sending raw payloads.
+  /// Ownership of the underlying connection moves to the returned [GSession].
+  Future<GSession> session({
+    String id = 'default',
+    String? name,
+  }) async {
+    _ensureOpen();
+    if (_rawClaimed) {
+      throw StateError(
+        'Cannot upgrade a GConnection after raw messages or sends were used.',
+      );
+    }
+
+    final sessionId = _validSessionValue(id, 'id');
+    final sessionName = _validSessionValue(name ?? sessionId, 'name');
+    final rawConnection = _requireConnection();
+    final connection = _sessionAdapter?.call(rawConnection) ?? rawConnection;
+    _connection = null;
+    _state = GConnectionState.upgraded;
+
+    return GSessionInternal.joinConnection(
+      transport: _sessionTransport,
+      endpoint: _endpoint,
+      connection: connection,
+      sessionId: sessionId,
+      sessionName: sessionName,
+      localPeerId: _localPeerId,
+      localPeerName: _localPeerName,
+      binaryMode: _binaryMode,
+    );
+  }
+
+  Future<void> close([int? code, String? reason]) async {
+    if (closed || upgraded) return;
+    _state = GConnectionState.closed;
+    final connection = _connection;
+    _connection = null;
+    await connection?.close(code, reason);
+    if (_transport case GDisposableTransport transport) {
+      await transport.dispose();
+    }
+  }
+
+  void _claimRaw() {
+    _ensureOpen();
+    _rawClaimed = true;
+  }
+
+  void _ensureOpen() {
+    if (!connected) {
+      throw StateError('GConnection is $state.');
+    }
+  }
+
+  GTransportConnection _requireConnection() {
+    final connection = _connection;
+    if (connection == null) {
+      throw StateError('GConnection no longer owns its transport connection.');
+    }
+    return connection;
+  }
+}
+
+/// Internal construction seam for raw transport connections.
+abstract final class GConnectionInternal {
+  static Future<GConnection> open({
+    required GConnectTransport transport,
+    required Object endpoint,
+    GConnectTransport? sessionTransport,
+    GTransportConnection Function(GTransportConnection)? sessionAdapter,
+    required String localPeerId,
+    required String localPeerName,
+    required GBinaryMode binaryMode,
+  }) async {
+    final connection = await transport.connect(endpoint);
+    return GConnection._(
+      transport: transport,
+      sessionTransport: sessionTransport,
+      sessionAdapter: sessionAdapter,
+      endpoint: endpoint,
+      connection: connection,
+      localPeerId: localPeerId,
+      localPeerName: localPeerName,
+      binaryMode: binaryMode,
+    );
+  }
+}
+
+String _validSessionValue(String value, String argument) {
+  final normalized = value.trim();
+  if (normalized.isEmpty || normalized.length > 128) {
+    throw ArgumentError.value(
+      value,
+      argument,
+      'Expected 1-128 non-whitespace characters.',
+    );
+  }
+  return normalized;
+}
+
+/// Active host or joined GraphX protocol session.
 ///
 /// Client reconnects are explicit: a dropped connection moves to
 /// [GSessionState.disconnected] until [reconnect] is called.
@@ -322,6 +486,12 @@ final class GSession {
       throw StateError('Client session has no transport endpoint.');
     }
     final connection = await transport.connect(endpoint);
+    await _connectClientConnection(connection);
+  }
+
+  Future<void> _connectClientConnection(
+    GTransportConnection connection,
+  ) async {
     if (disposed) {
       await connection.close();
       throw StateError('Session was disposed while connecting.');
@@ -522,6 +692,36 @@ abstract final class GSessionInternal {
     );
     session._startHost();
     return session;
+  }
+
+  static Future<GSession> joinConnection({
+    required GConnectTransport transport,
+    required Object endpoint,
+    required GTransportConnection connection,
+    required String sessionId,
+    required String sessionName,
+    required String localPeerId,
+    required String localPeerName,
+    required GBinaryMode binaryMode,
+  }) async {
+    final session = GSession._(
+      id: sessionId,
+      name: sessionName,
+      isHost: false,
+      localPeerId: localPeerId,
+      localPeerName: localPeerName,
+      binaryMode: binaryMode,
+      state: GSessionState.connecting,
+      transport: transport,
+      endpoint: endpoint,
+    );
+    try {
+      await session._connectClientConnection(connection);
+      return session;
+    } catch (_) {
+      await session.dispose();
+      rethrow;
+    }
   }
 
   static Future<GSession> join({

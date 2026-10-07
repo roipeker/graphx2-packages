@@ -7,6 +7,32 @@ import 'package:graphx_connect_socket/src/tcp_io.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('raw TCP sends exact bytes without GraphX framing', () async {
+    final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(server.close);
+
+    final accepted = server.first;
+    final connection = await connectRawTcp(
+      InternetAddress.loopbackIPv4.address,
+      server.port,
+      timeout: const Duration(seconds: 2),
+    );
+    addTearDown(connection.close);
+
+    final socket = await accepted;
+    addTearDown(socket.close);
+
+    final serverReceived = socket.first;
+    connection.send(Uint8List.fromList(<int>[1, 2, 3, 255]));
+    expect(await serverReceived, orderedEquals(<int>[1, 2, 3, 255]));
+
+    final clientReceived = connection.messages.first;
+    socket.add(<int>[9, 8, 7, 6]);
+    final incoming = await clientReceived;
+    expect(incoming, isA<Uint8List>());
+    expect(incoming as Uint8List, orderedEquals(<int>[9, 8, 7, 6]));
+  });
+
   test('TCP transport frames text and binary in both directions', () async {
     final server = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(server.close);

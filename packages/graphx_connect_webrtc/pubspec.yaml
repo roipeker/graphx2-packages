@@ -1,7 +1,7 @@
 name: graphx_connect_webrtc
 description: WebRTC peer sessions for graphx_connect.
 repository: https://github.com/roipeker/graphx2-packages
-version: 0.1.0-dev.8
+version: 0.1.0-dev.9
 publish_to: none
 
 resolution: workspace
@@ -19,7 +19,7 @@ dependencies:
       url: https://github.com/roipeker/graphx2-packages.git
       path: packages/graphx_connect
       tag_pattern: v{{version}}
-    version: ^0.1.0-dev.8
+    version: ^0.1.0-dev.9
   web_socket_channel: ^3.0.3
 
 dev_dependencies:

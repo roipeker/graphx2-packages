@@ -44,32 +44,86 @@ class _SocketAcceptanceScreenState extends State<SocketAcceptanceScreen> {
     });
   }
 
-  Future<void> _runTcp() async {
+  Future<void> _runRawTcp() async {
+    if (kIsWeb) {
+      _log('TCP unsupported on web');
+      return;
+    }
+    await _runRaw(
+      'RAW TCP',
+      () => GConnect(
+        name: 'Socket device raw TCP',
+      ).tcp(_host.text.trim(), port: 46003),
+    );
+  }
+
+  Future<void> _runRawWs() {
+    return _runRaw(
+      'RAW WS',
+      () => GConnect(
+        name: 'Socket device raw WS',
+      ).webSocket(Uri.parse('ws://${_host.text.trim()}:46002/raw')),
+    );
+  }
+
+  Future<void> _runRaw(
+    String label,
+    Future<GConnection> Function() open,
+  ) async {
+    if (_running) return;
+    setState(() => _running = true);
+    GConnection? connection;
+
+    try {
+      _log('$label connecting…');
+      connection = await open().timeout(const Duration(seconds: 6));
+      final expected = Uint8List.fromList(<int>[1, 2, 3, 4, 255]);
+      final response = connection.messages.first.timeout(
+        const Duration(seconds: 3),
+      );
+      connection.sendBytes(expected);
+      final message = await response;
+      if (message is! Uint8List || !_same(message, expected)) {
+        throw StateError('raw echo mismatch');
+      }
+      _log('$label binary echo ✓');
+      _log('$label PASS');
+    } on Object catch (error) {
+      _log('$label FAIL: $error');
+    } finally {
+      await connection?.close();
+      if (mounted) setState(() => _running = false);
+    }
+  }
+
+  Future<void> _runSessionTcp() async {
     if (kIsWeb) {
       _log('TCP unsupported on web');
       return;
     }
     await _run(
-      'TCP',
+      'SESSION TCP',
       () => GConnect(
         name: 'Socket device TCP',
-      ).tcp(_host.text.trim(), port: 46001, session: 'acceptance'),
+      ).tcpSession(_host.text.trim(), port: 46001, session: 'acceptance'),
     );
   }
 
-  Future<void> _runWs() {
+  Future<void> _runSessionWs() {
     return _run(
-      'WS',
-      () => GConnect(name: 'Socket device WS').webSocket(
+      'SESSION WS',
+      () => GConnect(name: 'Socket device WS').webSocketSession(
         Uri.parse('ws://${_host.text.trim()}:46002/connect'),
         session: 'acceptance',
       ),
     );
   }
 
-  Future<void> _runBoth() async {
-    await _runTcp();
-    await _runWs();
+  Future<void> _runAll() async {
+    if (!kIsWeb) await _runRawTcp();
+    await _runRawWs();
+    if (!kIsWeb) await _runSessionTcp();
+    await _runSessionWs();
   }
 
   Future<void> _run(String label, Future<GSession> Function() open) async {
@@ -199,15 +253,24 @@ class _SocketAcceptanceScreenState extends State<SocketAcceptanceScreen> {
               children: <Widget>[
                 if (!kIsWeb)
                   FilledButton(
-                    onPressed: _running ? null : _runTcp,
-                    child: const Text('RUN TCP'),
+                    onPressed: _running ? null : _runRawTcp,
+                    child: const Text('RAW TCP'),
                   ),
                 FilledButton(
-                  onPressed: _running ? null : _runWs,
-                  child: const Text('RUN WEBSOCKET'),
+                  onPressed: _running ? null : _runRawWs,
+                  child: const Text('RAW WS'),
                 ),
+                if (!kIsWeb)
+                  FilledButton.tonal(
+                    onPressed: _running ? null : _runSessionTcp,
+                    child: const Text('SESSION TCP'),
+                  ),
                 FilledButton.tonal(
-                  onPressed: _running ? null : _runBoth,
+                  onPressed: _running ? null : _runSessionWs,
+                  child: const Text('SESSION WS'),
+                ),
+                OutlinedButton(
+                  onPressed: _running ? null : _runAll,
                   child: const Text('RUN ALL'),
                 ),
               ],

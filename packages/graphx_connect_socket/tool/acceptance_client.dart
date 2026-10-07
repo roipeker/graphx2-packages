@@ -12,7 +12,7 @@ Future<void> main(List<String> args) async {
   if (config.tcpHost != null) {
     failures += await _run(
       'tcp',
-      () => GConnect(name: 'Socket TCP client').tcp(
+      () => GConnect(name: 'Socket TCP client').tcpSession(
         config.tcpHost!,
         port: config.tcpPort,
         session: config.session,
@@ -23,7 +23,7 @@ Future<void> main(List<String> args) async {
   if (config.ws != null) {
     failures += await _run(
       'websocket',
-      () => GConnect(name: 'Socket WS client').webSocket(
+      () => GConnect(name: 'Socket WS client').webSocketSession(
         config.ws!,
         session: config.session,
       ),

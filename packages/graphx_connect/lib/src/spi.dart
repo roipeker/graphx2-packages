@@ -4,6 +4,24 @@ import 'transport.dart';
 
 /// Stable construction seam for GraphX Connect transport packages.
 abstract final class GConnectSpi {
+  static Future<GConnection> open({
+    required GConnect connect,
+    required GConnectTransport transport,
+    required Object endpoint,
+    GConnectTransport? sessionTransport,
+    GTransportConnection Function(GTransportConnection)? sessionAdapter,
+  }) {
+    return GConnectionInternal.open(
+      transport: transport,
+      endpoint: endpoint,
+      sessionTransport: sessionTransport,
+      sessionAdapter: sessionAdapter,
+      localPeerId: connect.id,
+      localPeerName: connect.name,
+      binaryMode: connect.binaryMode,
+    );
+  }
+
   static GSession host({
     required GConnect connect,
     required GTransportHost host,

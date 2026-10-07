@@ -13,7 +13,7 @@ compatible without hard-coding one literal Git ref into every dependency.
 - `graphx_atlas` — TexturePacker atlas decoding and GraphX asset-loading helpers.
 - `graphx_particles` — packed retained particle emitters, fields, constraints, trails, and secondary effects.
 - `graphx_arcade` — small deterministic fixed-step 2D arcade physics.
-- `graphx_connect` — transport-neutral sessions, peers, messages, lifecycle, and SPI.
+- `graphx_connect` — transport-neutral raw connections plus optional peer sessions, lifecycle, and SPI.
 - `graphx_connect_webrtc` — WebRTC peer sessions with signaling/ICE/TURN.
 - `graphx_connect_nearby` — Google Nearby Connections for Android/iOS.
 - `graphx_connect_socket` — WebSocket and native TCP transports.
@@ -99,7 +99,7 @@ graphx_connect:
     url: https://github.com/roipeker/graphx2-packages.git
     path: packages/graphx_connect
     tag_pattern: v{{version}}
-  version: ^0.1.0-dev.8
+  version: ^0.1.0-dev.9
 ```
 
 Then run:
@@ -114,7 +114,7 @@ Current public baselines:
 
 - GraphX core: `v2.0.0-dev.2`
 - Existing GraphX packages: `v0.1.0-dev.3`
-- Connect family: `v0.1.0-dev.8`
+- Connect family: `v0.1.0-dev.9`
 
 ## Unreleased local development
 

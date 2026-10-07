@@ -11,12 +11,15 @@ const _serverName = 'Socket Acceptance Server';
 Future<void> main(List<String> args) async {
   final config = _Config.parse(args);
   final tcp = await ServerSocket.bind(config.host, config.tcpPort);
+  final rawTcp = await ServerSocket.bind(config.host, config.rawTcpPort);
   final http = await HttpServer.bind(config.host, config.wsPort);
 
   stdout.writeln(
     'GRAPHX_SOCKET_ACCEPTANCE_READY '
     'tcp=${tcp.address.address}:${tcp.port} '
-    'ws=ws://${http.address.address}:${http.port}/connect',
+    'raw_tcp=${rawTcp.address.address}:${rawTcp.port} '
+    'ws=ws://${http.address.address}:${http.port}/connect '
+    'raw_ws=ws://${http.address.address}:${http.port}/raw',
   );
 
   tcp.listen((socket) {
@@ -29,14 +32,55 @@ Future<void> main(List<String> args) async {
     );
   });
 
+  rawTcp.listen((socket) {
+    final label = 'raw-tcp ${socket.remoteAddress.address}:${socket.remotePort}';
+    stdout.writeln('CONNECTED $label');
+    socket.listen(
+      socket.add,
+      onError: (Object error, StackTrace stack) {
+        stderr.writeln('ERROR $label $error');
+      },
+      onDone: () {
+        stdout.writeln('DISCONNECTED $label');
+      },
+      cancelOnError: false,
+    );
+  });
+
   http.listen((request) async {
-    if (request.uri.path != '/connect' || !WebSocketTransformer.isUpgradeRequest(request)) {
+    if (!WebSocketTransformer.isUpgradeRequest(request)) {
       request.response
         ..statusCode = HttpStatus.notFound
         ..write('GraphX Connect socket acceptance server')
         ..close();
       return;
     }
+
+    if (request.uri.path == '/raw') {
+      final socket = await WebSocketTransformer.upgrade(request);
+      final label = 'raw-ws ${request.connectionInfo?.remoteAddress.address ?? '?'}';
+      stdout.writeln('CONNECTED $label');
+      socket.listen(
+        socket.add,
+        onError: (Object error, StackTrace stack) {
+          stderr.writeln('ERROR $label $error');
+        },
+        onDone: () {
+          stdout.writeln('DISCONNECTED $label');
+        },
+        cancelOnError: false,
+      );
+      return;
+    }
+
+    if (request.uri.path != '/connect') {
+      request.response
+        ..statusCode = HttpStatus.notFound
+        ..write('GraphX Connect socket acceptance server')
+        ..close();
+      return;
+    }
+
     final socket = await WebSocketTransformer.upgrade(request);
     unawaited(
       _serve(
@@ -235,16 +279,19 @@ final class _Config {
   const _Config({
     required this.host,
     required this.tcpPort,
+    required this.rawTcpPort,
     required this.wsPort,
   });
 
   final String host;
   final int tcpPort;
+  final int rawTcpPort;
   final int wsPort;
 
   static _Config parse(List<String> args) {
     var host = InternetAddress.anyIPv4.address;
     var tcpPort = 46001;
+    var rawTcpPort = 46003;
     var wsPort = 46002;
 
     for (var i = 0; i < args.length; i++) {
@@ -253,12 +300,15 @@ final class _Config {
           host = args[++i];
         case '--tcp':
           tcpPort = int.parse(args[++i]);
+        case '--raw-tcp':
+          rawTcpPort = int.parse(args[++i]);
         case '--ws':
           wsPort = int.parse(args[++i]);
         case '--help':
           stdout.writeln(
             'dart run tool/acceptance_server.dart '
-            '[--host 0.0.0.0] [--tcp 46001] [--ws 46002]',
+            '[--host 0.0.0.0] [--tcp 46001] '
+            '[--raw-tcp 46003] [--ws 46002]',
           );
           exit(0);
         default:
@@ -266,6 +316,11 @@ final class _Config {
       }
     }
 
-    return _Config(host: host, tcpPort: tcpPort, wsPort: wsPort);
+    return _Config(
+      host: host,
+      tcpPort: tcpPort,
+      rawTcpPort: rawTcpPort,
+      wsPort: wsPort,
+    );
   }
 }

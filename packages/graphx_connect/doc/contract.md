@@ -39,15 +39,18 @@ Apps only pay for transports they import.
 Optional packages add ergonomic `GConnect` extension methods:
 
 ```dart
-const connect = GConnect(name: 'Device');
+final connect = GConnect(name: 'Device');
 
-final session = await connect.webRtc(...);
+final socket = await connect.webSocket(...); // raw GConnection
+final session = await socket.session(id: 'main'); // optional GraphX protocol
+
+// Peer-oriented transports may expose sessions directly:
+// connect.webRtc(...)
 // connect.nearby(...)
-// connect.webSocket(...)
-// connect.tcp(...)
 ```
 
-Successful bidirectional transports converge on the same `GSession`.
+Raw transports converge on `GConnection`. The GraphX peer/session protocol is
+an optional layer, not a requirement for talking to arbitrary network services.
 
 ## Core concepts
 
@@ -56,15 +59,16 @@ Successful bidirectional transports converge on the same `GSession`.
 - peer is a remote endpoint/participant, never "opponent";
 - room/service/pairing are convenience inputs owned by the transport or app;
 - raw bytes stay a fast path;
-- protocol/capability negotiation happens once per connection;
+- GraphX protocol/capability negotiation happens only when a `GSession` is used;
 - unsupported capabilities fail explicitly; never silently change transport.
 
 ## SPI rule
 
 Transports provide I/O. Core owns GraphX behavior.
 
-Core owns handshake, identity, protocol compatibility, normalized lifecycle,
-errors, peer identity, message delivery and common reconnect semantics.
+Core owns raw connection lifecycle and the optional session layer. When a
+`GSession` is used, core owns handshake, identity, protocol compatibility,
+peer identity, message delivery and common reconnect semantics.
 
 Transport packages own only their native/network machinery and typed advanced
 options.

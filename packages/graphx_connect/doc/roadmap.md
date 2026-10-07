@@ -7,8 +7,8 @@ Contract: see [contract.md](contract.md).
 1. Make `graphx_connect` the small common core.
 2. Move WebRTC into `graphx_connect_webrtc`.
 3. Move Nearby into `graphx_connect_nearby`.
-4. Add `graphx_connect_socket` with WebSocket first, then TCP/UDP.
-5. Keep one shared `GSession`/message/lifecycle implementation in core.
+4. Keep `graphx_connect_socket` general-purpose: raw WebSocket/TCP first, optional GraphX sessions on top; UDP gets its own datagram contract.
+5. Keep one shared `GConnection` lifecycle and optional `GSession`/peer protocol implementation in core.
 6. Migrate Pixel Retro Games to the optional packages and use it as realtime
    acceptance coverage.
 
@@ -18,7 +18,8 @@ Contract: see [contract.md](contract.md).
 - Nearby: real iOS <-> Android discovery, pair, bytes, disconnect/rejoin,
   permissions, background/resume behavior.
 - WebSocket: web + native client against a normal server.
-- TCP/UDP: native targets only; explicit unsupported behavior on web.
+- TCP: raw byte stream + optional GraphX session on native targets; explicit unsupported behavior on web.
+- UDP: later, with an explicit datagram contract rather than stream/session semantics.
 - No transport SDK types visible in application code.
 - Raw binary hot path has no GraphX per-packet envelope unless explicitly chosen.
 
