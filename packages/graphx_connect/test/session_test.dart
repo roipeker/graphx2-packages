@@ -2,18 +2,18 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:graphx_connect/src/connect.dart';
-import 'package:graphx_connect/src/transport.dart';
+import 'package:graphx_connect/graphx_connect.dart';
+import 'package:graphx_connect/graphx_connect_spi.dart';
 
 void main() {
   test('host/join/message/disconnect/reconnect keeps peer identity', () async {
     final transport = _MemoryTransport();
-    final hostConnect = GConnectInternal.create(
+    final hostConnect = _MemoryConnect(
       transport: transport,
       name: 'TV',
       peerId: 'host-peer',
     );
-    final clientConnect = GConnectInternal.create(
+    final clientConnect = _MemoryConnect(
       transport: transport,
       name: 'Phone',
       peerId: 'phone-peer',
@@ -76,17 +76,17 @@ void main() {
 
   test('host supports multiple peers, broadcast, and targeted send', () async {
     final transport = _MemoryTransport();
-    final hostConnect = GConnectInternal.create(
+    final hostConnect = _MemoryConnect(
       transport: transport,
       name: 'TV',
       peerId: 'host-peer',
     );
-    final clientAConnect = GConnectInternal.create(
+    final clientAConnect = _MemoryConnect(
       transport: transport,
       name: 'Phone A',
       peerId: 'phone-a',
     );
-    final clientBConnect = GConnectInternal.create(
+    final clientBConnect = _MemoryConnect(
       transport: transport,
       name: 'Phone B',
       peerId: 'phone-b',
@@ -103,24 +103,18 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     expect(host.peers, hasLength(2));
-    expect(
-      host.peers.map((peer) => peer.id).toSet(),
-      <String>{'phone-a', 'phone-b'},
-    );
+    expect(host.peers.map((peer) => peer.id).toSet(), <String>{
+      'phone-a',
+      'phone-b',
+    });
     expect(host.peers.every((peer) => peer.connected), isTrue);
 
     final broadcastA = clientA.messages.first;
     final broadcastB = clientB.messages.first;
     host.send(<String, Object?>{'kind': 'broadcast'});
 
-    expect(
-      (await broadcastA).data,
-      <String, Object?>{'kind': 'broadcast'},
-    );
-    expect(
-      (await broadcastB).data,
-      <String, Object?>{'kind': 'broadcast'},
-    );
+    expect((await broadcastA).data, <String, Object?>{'kind': 'broadcast'});
+    expect((await broadcastB).data, <String, Object?>{'kind': 'broadcast'});
 
     final peerA = host.peers.singleWhere((peer) => peer.id == 'phone-a');
     final targetedA = clientA.messages.first;
@@ -131,10 +125,7 @@ void main() {
 
     host.send(<String, Object?>{'kind': 'targeted'}, to: peerA);
 
-    expect(
-      (await targetedA).data,
-      <String, Object?>{'kind': 'targeted'},
-    );
+    expect((await targetedA).data, <String, Object?>{'kind': 'targeted'});
     await Future<void>.delayed(Duration.zero);
     expect(clientBTargetedMessages, isEmpty);
 
@@ -147,12 +138,12 @@ void main() {
 
   test('binary messages share ordering and peer routing with data', () async {
     final transport = _MemoryTransport();
-    final hostConnect = GConnectInternal.create(
+    final hostConnect = _MemoryConnect(
       transport: transport,
       name: 'TV',
       peerId: 'host-peer',
     );
-    final clientConnect = GConnectInternal.create(
+    final clientConnect = _MemoryConnect(
       transport: transport,
       name: 'Phone',
       peerId: 'phone-peer',
@@ -197,13 +188,13 @@ void main() {
 
   test('binary mode mismatch is rejected during handshake', () async {
     final transport = _MemoryTransport();
-    final hostConnect = GConnectInternal.create(
+    final hostConnect = _MemoryConnect(
       transport: transport,
       name: 'Host',
       peerId: 'host-peer',
       binaryMode: GBinaryMode.raw,
     );
-    final clientConnect = GConnectInternal.create(
+    final clientConnect = _MemoryConnect(
       transport: transport,
       name: 'Client',
       peerId: 'client-peer',
@@ -225,35 +216,77 @@ void main() {
     await host.dispose();
   });
 
-  test('join rejects incompatible discovered protocol before connecting', () async {
-    final transport = _MemoryTransport(protocolVersion: 99);
-    final hostConnect = GConnectInternal.create(
+  test(
+    'join rejects incompatible discovered protocol before connecting',
+    () async {
+      final transport = _MemoryTransport(protocolVersion: 99);
+      final hostConnect = _MemoryConnect(
+        transport: transport,
+        name: 'TV',
+        peerId: 'host-peer',
+      );
+      final clientConnect = _MemoryConnect(
+        transport: transport,
+        name: 'Phone',
+        peerId: 'phone-peer',
+      );
+
+      final host = await hostConnect.host('Old Room');
+      final discovery = await clientConnect.discover();
+      final found = await discovery.events.firstWhere(
+        (event) => event.type == GDiscoveryEventType.found,
+      );
+
+      expect(found.session.compatible, isFalse);
+      await expectLater(
+        clientConnect.join(found.session),
+        throwsA(isA<StateError>()),
+      );
+      expect(transport.connectCount, 0);
+
+      await discovery.dispose();
+      await host.dispose();
+    },
+  );
+}
+
+final class _MemoryConnect {
+  _MemoryConnect({
+    required this.transport,
+    required String name,
+    required String peerId,
+    GBinaryMode binaryMode = GBinaryMode.raw,
+  }) : connect = GConnect(name: name, id: peerId, binaryMode: binaryMode);
+
+  final _MemoryTransport transport;
+  final GConnect connect;
+
+  Future<GSession> host(String sessionName) async {
+    const sessionId = 'memory-session';
+    final host = await transport.host(
+      sessionId: sessionId,
+      sessionName: sessionName,
+      protocolVersion: GConnect.protocolVersion,
+    );
+    return GConnectSpi.host(
+      connect: connect,
+      host: host,
+      sessionId: sessionId,
+      sessionName: sessionName,
+    );
+  }
+
+  Future<GDiscovery> discover() async {
+    return GConnectSpi.discovery(await transport.discover());
+  }
+
+  Future<GSession> join(GSessionInfo info) {
+    return GConnectSpi.joinDiscovered(
+      connect: connect,
       transport: transport,
-      name: 'TV',
-      peerId: 'host-peer',
+      session: info,
     );
-    final clientConnect = GConnectInternal.create(
-      transport: transport,
-      name: 'Phone',
-      peerId: 'phone-peer',
-    );
-
-    final host = await hostConnect.host('Old Room');
-    final discovery = await clientConnect.discover();
-    final found = await discovery.events.firstWhere(
-      (event) => event.type == GDiscoveryEventType.found,
-    );
-
-    expect(found.session.compatible, isFalse);
-    await expectLater(
-      clientConnect.join(found.session),
-      throwsA(isA<StateError>()),
-    );
-    expect(transport.connectCount, 0);
-
-    await discovery.dispose();
-    await host.dispose();
-  });
+  }
 }
 
 final class _MemoryTransport implements GConnectTransport {

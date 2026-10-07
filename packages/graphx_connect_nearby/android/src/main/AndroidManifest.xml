@@ -1,6 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Google Nearby Connections. Dangerous permissions are requested by
-         graphx_connect immediately before advertising/discovery starts. -->
+    <!-- Google Nearby Connections. Runtime-granted permissions are requested by
+         graphx_connect before advertising or discovery starts. -->
     <uses-permission
         android:name="android.permission.ACCESS_WIFI_STATE"
         android:maxSdkVersion="31" />
@@ -34,6 +34,7 @@
         android:name="android.permission.NEARBY_WIFI_DEVICES"
         android:minSdkVersion="32"
         android:usesPermissionFlags="neverForLocation" />
+    <!-- Android 17 / API 37+ when WIFI_LAN is used by Nearby Connections. -->
     <uses-permission
         android:name="android.permission.ACCESS_LOCAL_NETWORK"
         android:minSdkVersion="37" />

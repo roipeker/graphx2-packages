@@ -58,10 +58,7 @@ final class GConnectFrame {
 }
 
 final class GConnectBinaryFrame {
-  const GConnectBinaryFrame({
-    required this.sequence,
-    required this.payload,
-  });
+  const GConnectBinaryFrame({required this.sequence, required this.payload});
 
   final int sequence;
   final Uint8List payload;

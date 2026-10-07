@@ -1,101 +1,8 @@
 import 'dart:async';
-import 'dart:math';
 import 'dart:typed_data';
 
 import 'protocol.dart';
 import 'transport.dart';
-import 'transport_stub.dart' if (dart.library.io) 'transport_io.dart' as transport_impl;
-
-/// Local-network entry point returned by `GConnect.local(...)`.
-final class GLocalConnect {
-  factory GLocalConnect({
-    String name = 'GraphX peer',
-    GBinaryMode binaryMode = GBinaryMode.raw,
-  }) => GLocalConnect._(
-    transport_impl.createTransport(),
-    name: _validName(name, 'name'),
-    peerId: _randomId(),
-    binaryMode: binaryMode,
-  );
-
-  GLocalConnect._(
-    this._transport, {
-    required this.name,
-    required String peerId,
-    required this.binaryMode,
-  }) : _peerId = peerId;
-
-  static const int protocolVersion = gConnectProtocolVersion;
-
-  final GConnectTransport _transport;
-  final String _peerId;
-
-  /// Human-readable identity sent to remote peers.
-  final String name;
-
-  /// Binary packet policy. Raw is the zero-envelope fast path.
-  final GBinaryMode binaryMode;
-
-  /// Whether the default LAN transport is usable on this platform.
-  bool get supported => _transport.supported;
-
-  /// Name of the selected transport. The initial implementation is `lan`.
-  String get transport => _transport.name;
-
-  /// Hosts a discoverable local session.
-  Future<GSession> host(String sessionName) async {
-    _ensureSupported();
-    final normalized = _validName(sessionName, 'sessionName');
-    final sessionId = _randomId();
-    final host = await _transport.host(
-      sessionId: sessionId,
-      sessionName: normalized,
-      protocolVersion: protocolVersion,
-    );
-    return GSessionInternal.host(
-      host: host,
-      sessionId: sessionId,
-      sessionName: normalized,
-      localPeerId: _peerId,
-      localPeerName: name,
-      binaryMode: binaryMode,
-    );
-  }
-
-  /// Starts local discovery. Dispose the returned object when scanning ends.
-  Future<GDiscovery> discover() async {
-    _ensureSupported();
-    final discovery = await _transport.discover();
-    return GDiscovery._(discovery);
-  }
-
-  /// Joins one discovered session.
-  Future<GSession> join(GSessionInfo info) async {
-    _ensureSupported();
-    if (info.protocolVersion != protocolVersion) {
-      throw StateError(
-        'GraphX Connect protocol ${info.protocolVersion} is incompatible with local protocol $protocolVersion.',
-      );
-    }
-    return GSessionInternal.join(
-      transport: _transport,
-      endpoint: info._endpoint,
-      sessionId: info.id,
-      sessionName: info.name,
-      localPeerId: _peerId,
-      localPeerName: name,
-      binaryMode: binaryMode,
-    );
-  }
-
-  void _ensureSupported() {
-    if (!supported) {
-      throw UnsupportedError(
-        'GraphX Connect ${_transport.name} transport is unavailable on this platform.',
-      );
-    }
-  }
-}
 
 /// One session found by [GLocalConnect.discover].
 final class GSessionInfo {
@@ -366,7 +273,11 @@ final class GSession {
       throw StateError('Client session has no connected host.');
     }
     if (to != null && !identical(to, link.peer)) {
-      throw ArgumentError.value(to, 'to', 'Client sessions can only send to their host.');
+      throw ArgumentError.value(
+        to,
+        'to',
+        'Client sessions can only send to their host.',
+      );
     }
     link.sendEncoded(encoded);
   }
@@ -492,11 +403,7 @@ final class GSession {
           return;
         }
         _messages.add(
-          GMessage(
-            peer: peer,
-            sequence: sequence,
-            data: frame.payload,
-          ),
+          GMessage(peer: peer, sequence: sequence, data: frame.payload),
         );
         return;
       case 'ping':
@@ -524,20 +431,11 @@ final class GSession {
     }
   }
 
-  void _receiveBinary(
-    _GLink link,
-    Uint8List bytes, {
-    int? sequence,
-  }) {
+  void _receiveBinary(_GLink link, Uint8List bytes, {int? sequence}) {
     final peer = link.peer;
     if (peer == null) return;
     _messages.add(
-      GMessage(
-        peer: peer,
-        sequence: sequence,
-        data: null,
-        bytes: bytes,
-      ),
+      GMessage(peer: peer, sequence: sequence, data: null, bytes: bytes),
     );
   }
 
@@ -656,22 +554,6 @@ abstract final class GSessionInternal {
   }
 }
 
-/// Internal injection seam used by package tests and future transport work.
-/// Not exported from the public library.
-abstract final class GConnectInternal {
-  static GLocalConnect create({
-    required GConnectTransport transport,
-    required String name,
-    required String peerId,
-    GBinaryMode binaryMode = GBinaryMode.raw,
-  }) => GLocalConnect._(
-    transport,
-    name: _validName(name, 'name'),
-    peerId: peerId,
-    binaryMode: binaryMode,
-  );
-}
-
 final class _GLink {
   _GLink.host(this.session, this.connection) : _incoming = true {
     _start();
@@ -739,11 +621,7 @@ final class _GLink {
 
       try {
         final frame = GConnectProtocol.decodeBinary(encoded);
-        session._receiveBinary(
-          this,
-          frame.payload,
-          sequence: frame.sequence,
-        );
+        session._receiveBinary(this, frame.payload, sequence: frame.sequence);
       } catch (error, stack) {
         _failHandshake(error, stack);
         unawaited(close(4001, 'invalid binary frame'));
@@ -912,24 +790,4 @@ final class _GLink {
     await connection.close(code, reason);
     session._linkClosed(this);
   }
-}
-
-String _validName(String value, String argument) {
-  final normalized = value.trim();
-  if (normalized.isEmpty) {
-    throw ArgumentError.value(value, argument, 'Name cannot be empty.');
-  }
-  if (normalized.length > 63) {
-    throw ArgumentError.value(value, argument, 'Name must be 63 characters or fewer.');
-  }
-  return normalized;
-}
-
-String _randomId() {
-  final random = Random.secure();
-  final buffer = StringBuffer();
-  for (var i = 0; i < 16; i++) {
-    buffer.write(random.nextInt(256).toRadixString(16).padLeft(2, '0'));
-  }
-  return buffer.toString();
 }

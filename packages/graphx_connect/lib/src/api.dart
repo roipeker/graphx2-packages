@@ -1,55 +1,54 @@
-import 'connect.dart';
-import 'nearby.dart';
-import 'protocol.dart';
-import 'remote.dart';
+import 'dart:math';
 
-/// Minimal entry point for GraphX peer sessions.
-///
-/// Pick how peers become reachable, then work only with [GSession].
-abstract final class GConnect {
+import 'connect.dart';
+import 'protocol.dart';
+
+/// Shared entry point configured once, then extended by optional transports.
+final class GConnect {
+  GConnect({
+    String name = 'GraphX peer',
+    String? id,
+    this.binaryMode = GBinaryMode.raw,
+  }) : identity = GIdentity(id: id, name: name);
+
+  GConnect.identity(this.identity, {this.binaryMode = GBinaryMode.raw});
+
   static const int protocolVersion = gConnectProtocolVersion;
 
-  /// Same-network discovery and direct local sessions.
-  static GLocalConnect local({
-    String name = 'GraphX peer',
-    GBinaryMode binaryMode = GBinaryMode.raw,
-  }) {
-    return GLocalConnect(name: name, binaryMode: binaryMode);
-  }
+  final GIdentity identity;
+  final GBinaryMode binaryMode;
 
-  /// Offline/proximity peer sessions on Android and iOS.
-  ///
-  /// [service] must be stable and identical on both devices. A reverse-domain
-  /// application identifier is recommended.
-  static GNearbyConnect nearby({
-    required String service,
-    String name = 'GraphX peer',
-    GBinaryMode binaryMode = GBinaryMode.raw,
-  }) {
-    return GNearbyConnect(
-      service: service,
-      name: name,
-      binaryMode: binaryMode,
+  String get id => identity.id;
+  String get name => identity.name;
+}
+
+/// Stable identity shared across whichever transports a GConnect instance uses.
+final class GIdentity {
+  GIdentity({String? id, String name = 'GraphX peer'})
+    : id = _validIdentity(id ?? _randomId(), 'id'),
+      name = _validIdentity(name, 'name');
+
+  final String id;
+  final String name;
+}
+
+String _validIdentity(String value, String argument) {
+  final normalized = value.trim();
+  if (normalized.isEmpty || normalized.length > 128) {
+    throw ArgumentError.value(
+      value,
+      argument,
+      'Expected 1-128 non-whitespace characters.',
     );
   }
+  return normalized;
+}
 
-  /// Internet-capable peer sessions introduced through a rendezvous server.
-  ///
-  /// The server handles rendezvous/signaling. Application traffic uses the
-  /// direct WebRTC path when available and may use TURN when required.
-  static GRemoteConnect remote(
-    Uri server, {
-    String name = 'GraphX peer',
-    GBinaryMode binaryMode = GBinaryMode.raw,
-    List<GIceServer> iceServers = const <GIceServer>[],
-    bool serverIce = true,
-  }) {
-    return GRemoteConnect(
-      server,
-      name: name,
-      binaryMode: binaryMode,
-      iceServers: iceServers,
-      serverIce: serverIce,
-    );
+String _randomId() {
+  final random = Random.secure();
+  final buffer = StringBuffer();
+  for (var i = 0; i < 16; i++) {
+    buffer.write(random.nextInt(256).toRadixString(16).padLeft(2, '0'));
   }
+  return buffer.toString();
 }

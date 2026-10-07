@@ -1,10 +1,9 @@
 package com.roipeker.graphx_connect
 
+import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import com.google.android.gms.common.api.CommonStatusCodes
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
@@ -37,7 +36,6 @@ class GraphxConnectPlugin :
     private lateinit var appContext: Context
     private lateinit var methods: MethodChannel
     private lateinit var events: EventChannel
-    private val mainHandler = Handler(Looper.getMainLooper())
     private var eventSink: EventChannel.EventSink? = null
     private var activityBinding: ActivityPluginBinding? = null
     private var pendingPermissionResult: MethodChannel.Result? = null
@@ -93,33 +91,27 @@ class GraphxConnectPlugin :
         when (call.method) {
             "create" -> create(call, result)
             "prepare" -> prepare(result)
-
             "startAdvertising" -> withInstance(call, result) { instance ->
                 val context = call.argument<ByteArray>("context")
                     ?: return@withInstance result.error("bad_args", "Missing context.", null)
                 instance.startAdvertising(context, result)
             }
-
             "stopAdvertising" -> withInstance(call, result) { instance ->
                 instance.stopAdvertising()
                 result.success(null)
             }
-
             "startDiscovery" -> withInstance(call, result) { instance ->
                 instance.startDiscovery(result)
             }
-
             "stopDiscovery" -> withInstance(call, result) { instance ->
                 instance.stopDiscovery()
                 result.success(null)
             }
-
             "requestConnection" -> withInstance(call, result) { instance ->
                 val endpointId = call.argument<String>("endpointId")
                     ?: return@withInstance result.error("bad_args", "Missing endpointId.", null)
                 instance.requestConnection(endpointId, result)
             }
-
             "send" -> withInstance(call, result) { instance ->
                 val endpointId = call.argument<String>("endpointId")
                     ?: return@withInstance result.error("bad_args", "Missing endpointId.", null)
@@ -127,14 +119,12 @@ class GraphxConnectPlugin :
                     ?: return@withInstance result.error("bad_args", "Missing data.", null)
                 instance.send(endpointId, data, result)
             }
-
             "disconnect" -> withInstance(call, result) { instance ->
                 val endpointId = call.argument<String>("endpointId")
                     ?: return@withInstance result.error("bad_args", "Missing endpointId.", null)
                 instance.disconnect(endpointId)
                 result.success(null)
             }
-
             "dispose" -> {
                 val id = call.argument<String>("instanceId")
                 if (id == null) {
@@ -144,7 +134,6 @@ class GraphxConnectPlugin :
                 instances.remove(id)?.dispose()
                 result.success(null)
             }
-
             else -> result.notImplemented()
         }
     }
@@ -152,16 +141,17 @@ class GraphxConnectPlugin :
     private fun create(call: MethodCall, result: MethodChannel.Result) {
         val id = call.argument<String>("instanceId")
         val serviceId = call.argument<String>("serviceId")
-        if (id.isNullOrBlank() || serviceId.isNullOrBlank()) {
+        val endpointName = call.argument<String>("endpointName")
+        if (id.isNullOrBlank() || serviceId.isNullOrBlank() || endpointName.isNullOrBlank()) {
             result.error("bad_args", "Missing nearby instance configuration.", null)
             return
         }
-
         instances.remove(id)?.dispose()
         instances[id] = NearbyInstance(
             appContext,
             id,
             serviceId,
+            endpointName,
             ::emit,
         )
         result.success(null)
@@ -186,11 +176,7 @@ class GraphxConnectPlugin :
             return
         }
         if (pendingPermissionResult != null) {
-            result.error(
-                "permission_busy",
-                "A Nearby permission request is already active.",
-                null,
-            )
+            result.error("permission_busy", "A Nearby permission request is already active.", null)
             return
         }
 
@@ -206,7 +192,6 @@ class GraphxConnectPlugin :
         if (requestCode != PERMISSION_REQUEST) return false
         val result = pendingPermissionResult ?: return false
         pendingPermissionResult = null
-
         val granted = grantResults.isNotEmpty() &&
             grantResults.all { it == PackageManager.PERMISSION_GRANTED }
         if (granted) {
@@ -224,28 +209,19 @@ class GraphxConnectPlugin :
     private fun requiredPermissions(): List<String> {
         val sdk = Build.VERSION.SDK_INT
         val permissions = mutableListOf<String>()
-
         when {
-            sdk <= 28 -> {
-                permissions += "android.permission.ACCESS_COARSE_LOCATION"
-            }
-
-            sdk <= 30 -> {
-                permissions += "android.permission.ACCESS_FINE_LOCATION"
-            }
-
+            sdk <= 28 -> permissions += "android.permission.ACCESS_COARSE_LOCATION"
+            sdk <= 30 -> permissions += "android.permission.ACCESS_FINE_LOCATION"
             sdk == 31 -> {
                 permissions += "android.permission.ACCESS_FINE_LOCATION"
                 permissions += "android.permission.BLUETOOTH_ADVERTISE"
                 permissions += "android.permission.BLUETOOTH_CONNECT"
                 permissions += "android.permission.BLUETOOTH_SCAN"
             }
-
             else -> {
                 permissions += "android.permission.BLUETOOTH_ADVERTISE"
                 permissions += "android.permission.BLUETOOTH_CONNECT"
                 permissions += "android.permission.BLUETOOTH_SCAN"
-
                 if (sdk >= 33) {
                     permissions += "android.permission.NEARBY_WIFI_DEVICES"
                 }
@@ -265,20 +241,16 @@ class GraphxConnectPlugin :
         val id = call.argument<String>("instanceId")
         val instance = id?.let(instances::get)
         if (instance == null) {
-            result.error(
-                "unknown_instance",
-                "Nearby instance is not active.",
-                null,
-            )
+            result.error("unknown_instance", "Nearby instance is not active.", null)
             return
         }
         block(instance)
     }
 
     private fun emit(event: Map<String, Any?>) {
-        mainHandler.post {
+        activityBinding?.activity?.runOnUiThread {
             eventSink?.success(event)
-        }
+        } ?: eventSink?.success(event)
     }
 
     companion object {
@@ -292,16 +264,15 @@ private class NearbyInstance(
     context: Context,
     private val instanceId: String,
     private val serviceId: String,
+    private val endpointName: String,
     private val emit: (Map<String, Any?>) -> Unit,
 ) {
     private val client: ConnectionsClient = Nearby.getConnectionsClient(context)
     private val strategy = Strategy.P2P_POINT_TO_POINT
-
     private var advertisedContext: ByteArray? = null
     private var shouldAdvertise = false
     private var advertising = false
     private var discovering = false
-    private var activeEndpointId: String? = null
 
     private val payloadCallback = object : PayloadCallback() {
         override fun onPayloadReceived(endpointId: String, payload: Payload) {
@@ -326,18 +297,12 @@ private class NearbyInstance(
 
     private val lifecycle = object : ConnectionLifecycleCallback() {
         override fun onConnectionInitiated(endpointId: String, info: ConnectionInfo) {
-            val active = activeEndpointId
-            if (active != null && active != endpointId) {
-                client.rejectConnection(endpointId)
-                return
-            }
-
-            activeEndpointId = endpointId
+            // Nearby's encrypted channel is accepted automatically for the low-friction
+            // GraphX peer model. The authentication digits remain an implementation
+            // detail for now; a future explicit verification policy can expose them.
             client.acceptConnection(endpointId, payloadCallback)
                 .addOnFailureListener { error ->
-                    if (activeEndpointId == endpointId) activeEndpointId = null
                     failConnection(endpointId, error)
-                    restartAdvertisingIfNeeded()
                 }
         }
 
@@ -346,10 +311,7 @@ private class NearbyInstance(
             resolution: ConnectionResolution,
         ) {
             if (resolution.status.statusCode == CommonStatusCodes.SUCCESS) {
-                activeEndpointId = endpointId
-
-                // Discovery/advertising are radio-expensive. Once the direct
-                // point-to-point link exists they are no longer useful.
+                // Radio discovery is expensive and can destabilize an established link.
                 if (discovering) {
                     client.stopDiscovery()
                     discovering = false
@@ -360,7 +322,6 @@ private class NearbyInstance(
                 }
                 event("connected", endpointId)
             } else {
-                if (activeEndpointId == endpointId) activeEndpointId = null
                 event(
                     "connectionFailed",
                     endpointId,
@@ -369,22 +330,17 @@ private class NearbyInstance(
                             "Nearby connection failed: ${resolution.status.statusCode}",
                     ),
                 )
-                restartAdvertisingIfNeeded()
             }
         }
 
         override fun onDisconnected(endpointId: String) {
-            if (activeEndpointId == endpointId) activeEndpointId = null
             event("disconnected", endpointId)
             restartAdvertisingIfNeeded()
         }
     }
 
     private val discoveryCallback = object : EndpointDiscoveryCallback() {
-        override fun onEndpointFound(
-            endpointId: String,
-            info: DiscoveredEndpointInfo,
-        ) {
+        override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) {
             event(
                 "found",
                 endpointId,
@@ -400,7 +356,6 @@ private class NearbyInstance(
     fun startAdvertising(context: ByteArray, result: MethodChannel.Result) {
         advertisedContext = context
         shouldAdvertise = true
-
         val options = AdvertisingOptions.Builder().setStrategy(strategy).build()
         client.startAdvertising(context, serviceId, lifecycle, options)
             .addOnSuccessListener {
@@ -442,11 +397,10 @@ private class NearbyInstance(
     }
 
     fun requestConnection(endpointId: String, result: MethodChannel.Result) {
-        val endpointInfo = GRAPHX_ENDPOINT_INFO.toByteArray(StandardCharsets.UTF_8)
+        val endpointInfo = endpointName.toByteArray(StandardCharsets.UTF_8)
         client.requestConnection(endpointInfo, endpointId, lifecycle)
             .addOnSuccessListener { result.success(null) }
             .addOnFailureListener { error ->
-                if (activeEndpointId == endpointId) activeEndpointId = null
                 failConnection(endpointId, error)
                 result.error("connect_failed", error.message, null)
             }
@@ -461,15 +415,10 @@ private class NearbyInstance(
             )
             return
         }
-
         client.sendPayload(endpointId, Payload.fromBytes(data))
             .addOnSuccessListener { result.success(null) }
             .addOnFailureListener { error ->
-                event(
-                    "error",
-                    endpointId,
-                    mapOf("message" to (error.message ?: "Send failed.")),
-                )
+                event("error", endpointId, mapOf("message" to (error.message ?: "Send failed.")))
                 result.error("send_failed", error.message, null)
             }
     }
@@ -481,8 +430,6 @@ private class NearbyInstance(
     fun dispose() {
         shouldAdvertise = false
         advertisedContext = null
-        activeEndpointId = null
-
         if (advertising) client.stopAdvertising()
         if (discovering) client.stopDiscovery()
         advertising = false
@@ -493,21 +440,14 @@ private class NearbyInstance(
     private fun restartAdvertisingIfNeeded() {
         val context = advertisedContext ?: return
         if (!shouldAdvertise || advertising) return
-
         val options = AdvertisingOptions.Builder().setStrategy(strategy).build()
         client.startAdvertising(context, serviceId, lifecycle, options)
-            .addOnSuccessListener {
-                advertising = true
-            }
+            .addOnSuccessListener { advertising = true }
             .addOnFailureListener { error ->
-                advertising = false
                 event(
                     "error",
                     null,
-                    mapOf(
-                        "message" to
-                            (error.message ?: "Failed to resume advertising."),
-                    ),
+                    mapOf("message" to (error.message ?: "Failed to resume advertising.")),
                 )
             }
     }
@@ -532,9 +472,5 @@ private class NearbyInstance(
         if (endpointId != null) event["endpointId"] = endpointId
         event.putAll(extra)
         emit(event)
-    }
-
-    companion object {
-        private const val GRAPHX_ENDPOINT_INFO = "graphx"
     }
 }

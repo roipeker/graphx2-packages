@@ -1,32 +1,15 @@
 name: graphx_connect
-description: Small fast peer sessions for games, remotes, tools, and device connections.
+description: Small transport-neutral sessions, peers, messages, and lifecycle for GraphX.
 repository: https://github.com/roipeker/graphx2-packages
-version: 0.1.0-dev.6
+version: 0.1.0-dev.7
 publish_to: none
 
 resolution: workspace
 
 environment:
   sdk: ^3.12.2
-  flutter: ">=3.44.0"
-
-dependencies:
-  flutter:
-    sdk: flutter
-  flutter_webrtc: ^1.6.2+hotfix.3
-  nsd: ^5.0.1
-  web_socket_channel: ^3.0.3
 
 dev_dependencies:
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter
-
-flutter:
-  plugin:
-    platforms:
-      android:
-        package: com.roipeker.graphx_connect
-        pluginClass: GraphxConnectPlugin
-      ios:
-        pluginClass: GraphxConnectPlugin

@@ -6,7 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-import 'transport.dart';
+import 'package:graphx_connect/graphx_connect_spi.dart';
 
 final class GWebRtcTransport implements GConnectTransport {
   GWebRtcTransport(
@@ -77,11 +77,7 @@ final class _WebRtcHost implements GTransportHost {
       'protocol': '$protocolVersion',
       'peer': _signalPeerId(),
     });
-    final host = _WebRtcHost._(
-      signal,
-      iceServers,
-      serverIce: serverIce,
-    );
+    final host = _WebRtcHost._(signal, iceServers, serverIce: serverIce);
     host._subscription = signal.attach(host._onSignal);
     return host;
   }
@@ -89,7 +85,9 @@ final class _WebRtcHost implements GTransportHost {
   final _SignalSocket _signal;
   final bool serverIce;
   List<Map<String, Object?>> _iceServers;
-  final _connections = StreamController<GTransportConnection>.broadcast(sync: true);
+  final _connections = StreamController<GTransportConnection>.broadcast(
+    sync: true,
+  );
   final Map<String, _RtcLink> _links = <String, _RtcLink>{};
   StreamSubscription<Map<String, Object?>>? _subscription;
   bool _disposed = false;
@@ -162,14 +160,11 @@ final class _WebRtcClient {
     required List<Map<String, Object?>> iceServers,
     required bool serverIce,
   }) async {
-    final signal = await _SignalSocket.open(
-      server,
-      <String, String>{
-        'role': 'join',
-        'room': room,
-        'peer': _signalPeerId(),
-      },
-    );
+    final signal = await _SignalSocket.open(server, <String, String>{
+      'role': 'join',
+      'room': room,
+      'peer': _signalPeerId(),
+    });
 
     var effectiveIce = List<Map<String, Object?>>.of(iceServers);
     if (serverIce) {
@@ -215,9 +210,9 @@ final class _RtcLink {
     required void Function(GTransportConnection) onOpen,
     required void Function() onClosed,
   }) async {
-    final pc = await createPeerConnection(
-      <String, dynamic>{'iceServers': iceServers},
-    );
+    final pc = await createPeerConnection(<String, dynamic>{
+      'iceServers': iceServers,
+    });
     final link = _RtcLink._(client, signal, pc, onOpen, onClosed);
     link._wirePeerConnection();
 
@@ -232,10 +227,7 @@ final class _RtcLink {
     signal.send(<String, Object?>{
       'type': 'signal',
       'client': client,
-      'description': <String, Object?>{
-        'type': offer.type,
-        'sdp': offer.sdp,
-      },
+      'description': <String, Object?>{'type': offer.type, 'sdp': offer.sdp},
     });
     return link;
   }
@@ -246,9 +238,9 @@ final class _RtcLink {
     required void Function(GTransportConnection) onOpen,
     required void Function() onClosed,
   }) async {
-    final pc = await createPeerConnection(
-      <String, dynamic>{'iceServers': iceServers},
-    );
+    final pc = await createPeerConnection(<String, dynamic>{
+      'iceServers': iceServers,
+    });
     final link = _RtcLink._('', signal, pc, onOpen, onClosed);
     link._wirePeerConnection();
     pc.onDataChannel = link._attachChannel;
@@ -363,10 +355,8 @@ final class _RtcLink {
 }
 
 final class _RtcConnection implements GTransportConnection {
-  _RtcConnection(
-    this._channel, {
-    required Future<void> Function() closeOwner,
-  }) : _closeOwner = closeOwner {
+  _RtcConnection(this._channel, {required Future<void> Function() closeOwner})
+    : _closeOwner = closeOwner {
     _channel.onMessage = (message) {
       if (!_messages.isClosed) {
         _messages.add(message.isBinary ? message.binary : message.text);
@@ -390,9 +380,7 @@ final class _RtcConnection implements GTransportConnection {
       return;
     }
     if (message is Uint8List) {
-      unawaited(
-        _channel.send(RTCDataChannelMessage.fromBinary(message)),
-      );
+      unawaited(_channel.send(RTCDataChannelMessage.fromBinary(message)));
       return;
     }
     throw ArgumentError.value(
@@ -452,10 +440,7 @@ final class _SignalSocket {
     Map<String, String> query,
   ) async {
     final uri = server.replace(
-      queryParameters: <String, String>{
-        ...server.queryParameters,
-        ...query,
-      },
+      queryParameters: <String, String>{...server.queryParameters, ...query},
     );
     final channel = WebSocketChannel.connect(uri);
     await channel.ready;

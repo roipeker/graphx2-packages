@@ -1,0 +1,28 @@
+name: graphx_connect_webrtc
+description: WebRTC peer sessions for graphx_connect.
+repository: https://github.com/roipeker/graphx2-packages
+version: 0.1.0-dev.7
+publish_to: none
+
+resolution: workspace
+
+environment:
+  sdk: ^3.12.2
+  flutter: ">=3.35.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_webrtc: ^1.6.2+hotfix.3
+  graphx_connect:
+    git:
+      url: https://github.com/roipeker/graphx2-packages.git
+      path: packages/graphx_connect
+      tag_pattern: v{{version}}
+    version: ^0.1.0-dev.7
+  web_socket_channel: ^3.0.3
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
