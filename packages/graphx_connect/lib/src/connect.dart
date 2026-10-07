@@ -175,6 +175,16 @@ final class GDiscovery {
   }
 }
 
+/// Internal construction seam shared by transport implementations.
+abstract final class GDiscoveryInternal {
+  static GDiscovery create(GTransportDiscovery transport) => GDiscovery._(transport);
+}
+
+/// Internal access to opaque discovered transport endpoints.
+abstract final class GSessionInfoInternal {
+  static Object endpoint(GSessionInfo info) => info._endpoint;
+}
+
 enum GBinaryMode {
   /// Send exactly the supplied bytes. Compatibility is checked once during
   /// the peer handshake; packets carry no GraphX Connect header.
@@ -582,6 +592,9 @@ final class GSession {
     }
 
     await _host?.dispose();
+    if (_transport case GDisposableTransport transport) {
+      await transport.dispose();
+    }
     await _messages.close();
     await _peerEvents.close();
   }
@@ -591,6 +604,7 @@ final class GSession {
 abstract final class GSessionInternal {
   static GSession host({
     required GTransportHost host,
+    GConnectTransport? transport,
     required String sessionId,
     required String sessionName,
     required String localPeerId,
@@ -605,6 +619,7 @@ abstract final class GSessionInternal {
       localPeerName: localPeerName,
       binaryMode: binaryMode,
       state: GSessionState.connected,
+      transport: transport,
       host: host,
     );
     session._startHost();
