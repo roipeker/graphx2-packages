@@ -1,0 +1,28 @@
+name: graphx_connect_socket_example
+description: Device acceptance app for graphx_connect_socket.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.12.2
+  flutter: ">=3.44.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  graphx_connect:
+    path: ../../graphx_connect
+  graphx_connect_socket:
+    path: ..
+
+dependency_overrides:
+  graphx_connect:
+    path: ../../graphx_connect
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
