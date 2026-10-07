@@ -1,5 +1,7 @@
 # graphx_connect
 
+Development contract: [doc/contract.md](doc/contract.md) · [roadmap](doc/roadmap.md)
+
 Small peer sessions for games, remotes, tools and device-to-device features.
 
 The public model is intentionally narrow:
