@@ -1,4 +1,5 @@
 import 'connect.dart';
+import 'nearby.dart';
 import 'protocol.dart';
 import 'remote.dart';
 
@@ -14,6 +15,22 @@ abstract final class GConnect {
     GBinaryMode binaryMode = GBinaryMode.raw,
   }) {
     return GLocalConnect(name: name, binaryMode: binaryMode);
+  }
+
+  /// Offline/proximity peer sessions on Android and iOS.
+  ///
+  /// [service] must be stable and identical on both devices. A reverse-domain
+  /// application identifier is recommended.
+  static GNearbyConnect nearby({
+    required String service,
+    String name = 'GraphX peer',
+    GBinaryMode binaryMode = GBinaryMode.raw,
+  }) {
+    return GNearbyConnect(
+      service: service,
+      name: name,
+      binaryMode: binaryMode,
+    );
   }
 
   /// Internet-capable peer sessions introduced through a rendezvous server.
