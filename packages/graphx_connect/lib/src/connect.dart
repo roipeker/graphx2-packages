@@ -6,19 +6,19 @@ import 'protocol.dart';
 import 'transport.dart';
 import 'transport_stub.dart' if (dart.library.io) 'transport_io.dart' as transport_impl;
 
-/// Small entry point for hosting, discovering, and joining local sessions.
-final class GConnect {
-  factory GConnect({
+/// Local-network entry point returned by `GConnect.local(...)`.
+final class GLocalConnect {
+  factory GLocalConnect({
     String name = 'GraphX peer',
     GBinaryMode binaryMode = GBinaryMode.raw,
-  }) => GConnect._(
+  }) => GLocalConnect._(
     transport_impl.createTransport(),
     name: _validName(name, 'name'),
     peerId: _randomId(),
     binaryMode: binaryMode,
   );
 
-  GConnect._(
+  GLocalConnect._(
     this._transport, {
     required this.name,
     required String peerId,
@@ -97,7 +97,7 @@ final class GConnect {
   }
 }
 
-/// One session found by [GConnect.discover].
+/// One session found by [GLocalConnect.discover].
 final class GSessionInfo {
   const GSessionInfo._({
     required this.id,
@@ -111,7 +111,7 @@ final class GSessionInfo {
   final int protocolVersion;
   final Object _endpoint;
 
-  bool get compatible => protocolVersion == GConnect.protocolVersion;
+  bool get compatible => protocolVersion == gConnectProtocolVersion;
 
   @override
   String toString() => 'GSessionInfo($name, v$protocolVersion)';
@@ -644,12 +644,12 @@ abstract final class GSessionInternal {
 /// Internal injection seam used by package tests and future transport work.
 /// Not exported from the public library.
 abstract final class GConnectInternal {
-  static GConnect create({
+  static GLocalConnect create({
     required GConnectTransport transport,
     required String name,
     required String peerId,
     GBinaryMode binaryMode = GBinaryMode.raw,
-  }) => GConnect._(
+  }) => GLocalConnect._(
     transport,
     name: _validName(name, 'name'),
     peerId: peerId,
@@ -751,7 +751,7 @@ final class _GLink {
       return;
     }
 
-    if (frame.version != GConnect.protocolVersion) {
+    if (frame.version != gConnectProtocolVersion) {
       _failHandshake(
         StateError('Incompatible GraphX Connect protocol ${frame.version}.'),
       );

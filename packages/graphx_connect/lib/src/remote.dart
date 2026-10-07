@@ -1,9 +1,10 @@
 import 'dart:math';
 
 import 'connect.dart';
+import 'protocol.dart';
 import 'transport_webrtc.dart';
 
-/// Pairing-code entry point for direct WebRTC sessions.
+/// Remote peer entry point returned by `GConnect.remote(...)`.
 ///
 /// The rendezvous server introduces peers and may provide session-scoped ICE
 /// servers. Application traffic moves over WebRTC data channels.
@@ -62,7 +63,7 @@ final class GRemoteConnect {
     final host = await _transport.host(
       sessionId: roomCode,
       sessionName: normalized,
-      protocolVersion: GConnect.protocolVersion,
+      protocolVersion: gConnectProtocolVersion,
     );
     return GSessionInternal.host(
       host: host,
@@ -75,7 +76,7 @@ final class GRemoteConnect {
   }
 
   /// Joins a remote session by pairing code.
-  Future<GSession> joinCode(String code) {
+  Future<GSession> join(String code) {
     final normalized = _normalizeCode(code);
     return GSessionInternal.join(
       transport: _transport,

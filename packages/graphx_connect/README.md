@@ -1,173 +1,159 @@
 # graphx_connect
 
-Small peer sessions for games, remotes, tools, LAN devices and browser peers.
+Small peer sessions for games, remotes, tools and device-to-device features.
 
-The package owns discovery, rendezvous, transport, peer identity and connection
-lifecycle. It deliberately does **not** own game state, rollback, replication,
-RPC schemas or UI.
+The public model is intentionally narrow:
 
-## Remote / WebRTC
+```text
+GConnect -> GSession -> GPeer / GMessage
+```
 
-Host:
+Applications choose how peers become reachable. Once a `GSession` exists, game
+and tool code does not depend on WebRTC, Bonjour, sockets, ICE, TURN or platform
+radio APIs.
+
+## Remote peers
 
 ```dart
-final connect = GRemoteConnect(
+final connect = GConnect.remote(
   Uri.parse('wss://connect.example.com/v1/connect'),
   name: 'Player 1',
 );
 
-final session = await connect.host('Air Hockey');
+final session = await connect.host(
+  'Air Hockey',
+  code: '4821',
+);
 
 session.messages.listen((message) {
   final bytes = message.bytes;
-  if (bytes != null) {
-    game.onPacket(bytes);
-  }
+  if (bytes != null) game.onPacket(bytes);
 });
 
 session.sendBytes(packet);
 ```
 
-Join:
+Joining uses the same connector:
 
 ```dart
-final connect = GRemoteConnect(
+final connect = GConnect.remote(
   Uri.parse('wss://connect.example.com/v1/connect'),
   name: 'Player 2',
 );
 
-final session = await connect.joinCode('K7P4DX');
+final session = await connect.join('4821');
 ```
 
-A host may supply its own short code when the product already has one:
+The rendezvous server introduces peers and may provide short-lived ICE/TURN
+configuration. Application traffic travels over an ordered WebRTC DataChannel.
+
+## Local peers
 
 ```dart
-final session = await connect.host('Jumping Jack', code: '4821');
-```
-
-The signaling server only introduces peers. Application traffic travels over
-an ordered WebRTC DataChannel.
-
-### ICE / TURN
-
-By default `serverIce: true`. A rendezvous server may include standard
-`iceServers` in its `joined` or `config` message. This is the preferred
-production setup because TURN credentials can be short-lived and permanent
-provider secrets stay server-side.
-
-Static ICE remains available as a fallback:
-
-```dart
-final connect = GRemoteConnect(
-  rendezvous,
-  serverIce: false,
-  iceServers: const <GIceServer>[
-    GIceServer(
-      <String>['turn:turn.example.com:3478'],
-      username: 'user',
-      credential: 'temporary-secret',
-    ),
-  ],
-);
-```
-
-## LAN
-
-Native devices can advertise/discover a session through Bonjour/mDNS and then
-talk over a direct WebSocket:
-
-```dart
-final hostConnect = GConnect(name: 'Living Room');
+final hostConnect = GConnect.local(name: 'Living Room');
 final host = await hostConnect.host('Remote Control');
 
-final clientConnect = GConnect(name: 'Phone');
+final clientConnect = GConnect.local(name: 'Phone');
 final discovery = await clientConnect.discover();
+
 final found = await discovery.events.firstWhere(
   (event) => event.type == GDiscoveryEventType.found,
 );
+
 final client = await clientConnect.join(found.session);
 ```
 
-LAN and WebRTC converge on the same `GSession`, `GPeer` and `GMessage`
-API.
+The current local backend uses Bonjour/mDNS for discovery and a direct local
+WebSocket for the session.
 
-## Binary packets
+## Session API
 
-Raw bytes are the default:
-
-```dart
-final connect = GRemoteConnect(
-  rendezvous,
-  binaryMode: GBinaryMode.raw,
-);
-
-session.sendBytes(packet);
-```
-
-`GBinaryMode.raw` adds **zero GraphX Connect bytes per packet**. Protocol
-version and binary-mode compatibility are checked once during the session
-handshake.
-
-When sender sequencing is useful:
-
-```dart
-final connect = GRemoteConnect(
-  rendezvous,
-  binaryMode: GBinaryMode.sequenced,
-);
-```
-
-`sequenced` prefixes a 4-byte unsigned sequence. No protocol version is
-repeated on every packet.
-
-Structured JSON-compatible messages remain available for infrequent control
-traffic:
+Remote and local connections converge on the same object:
 
 ```dart
 session.send(<String, Object?>{
   'type': 'ready',
   'seed': 1234,
 });
+
+session.sendBytes(packet);
+
+session.messages.listen(onMessage);
+session.peerEvents.listen(onPeerEvent);
+
+await session.disconnect(); // joined clients
+await session.reconnect();  // one explicit attempt
+await session.dispose();
 ```
 
-## Peers and reconnect
-
-Hosts can have multiple peers, broadcast, or target one:
+Hosts may broadcast or target one peer:
 
 ```dart
 session.sendBytes(packet);
 session.sendBytes(packet, to: playerTwo);
 ```
 
-`session.peerEvents` reports connect/reconnect/disconnect and `GPeer.latency`
-contains the measured RTT. Joined clients may explicitly call
-`session.reconnect()`; GraphX Connect does not hide an infinite retry policy
-inside the transport.
+Raw binary mode is the default and adds zero GraphX Connect bytes per packet.
+`GBinaryMode.sequenced` adds a 4-byte sender sequence when that is useful.
 
-## Native LAN setup
+## Platform capability
+
+A connector reports whether its backend is available:
+
+```dart
+final local = GConnect.local();
+
+if (local.supported) {
+  final discovery = await local.discover();
+}
+```
+
+Unsupported connection modes fail explicitly. GraphX Connect does not silently
+replace one transport with another.
+
+Current intent:
+
+| Mode | Web | iOS | Android | macOS | Windows | Linux |
+| --- | --- | --- | --- | --- | --- | --- |
+| `remote` | yes | yes | yes | yes | yes | yes* |
+| `local` | no | yes | yes | yes | yes | later |
+| `nearby` | later | planned | planned | no | no | no |
+| `server` | later | later | later | later | later | later |
+
+`*` Subject to the underlying WebRTC backend supported by the application build.
+
+`nearby` is intentionally not exposed until the iOS/Android implementation is
+real and cross-platform. The target backend is Google Nearby Connections on
+both mobile platforms rather than two incompatible discovery systems.
+
+## Boundary
+
+GraphX Connect owns:
+
+- peer/session lifecycle;
+- discovery/rendezvous adapters;
+- stable peer identity;
+- protocol compatibility;
+- structured and binary messages;
+- measured peer RTT.
+
+Applications own:
+
+- game state and simulation;
+- rollback/prediction;
+- RPC schemas;
+- accounts and persistence;
+- UI;
+- reconnect policy beyond an explicit attempt.
+
+Future streams, server sessions and nearby radio connections must converge on
+`GSession`; they should not expand the ordinary game-facing API unless their
+semantics cannot be represented cleanly.
+
+## Native local setup
 
 Android applications need internet and multicast access.
 
-iOS/macOS applications using LAN discovery must declare local-network usage
+iOS/macOS applications using local discovery must declare local-network usage
 and `_graphx._tcp` under `NSBonjourServices`. Sandboxed macOS apps also need
 client/server networking entitlements.
-
-## Current boundary
-
-Good fits today:
-
-- deterministic or rollback multiplayer games;
-- phone/browser remote controls;
-- LAN companion apps and tools;
-- small structured messages;
-- low-latency binary packets.
-
-Not implemented yet:
-
-- bounded/backpressured `sendStream`;
-- file-transfer convenience;
-- authoritative/server-backed application sessions;
-- path diagnostics distinguishing direct LAN / direct WAN / TURN relay.
-
-Large streaming is intentionally deferred until buffering, cancellation and
-backpressure have a measured contract.

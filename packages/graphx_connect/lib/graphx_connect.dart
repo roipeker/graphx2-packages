@@ -1,7 +1,9 @@
+library;
+
+export 'src/api.dart' show GConnect;
 export 'src/connect.dart'
     show
         GBinaryMode,
-        GConnect,
         GDiscovery,
         GDiscoveryEvent,
         GDiscoveryEventType,
@@ -13,4 +15,4 @@ export 'src/connect.dart'
         GSession,
         GSessionInfo,
         GSessionState;
-export 'src/remote.dart' show GRemoteConnect, GIceServer;
+export 'src/remote.dart' show GIceServer;
