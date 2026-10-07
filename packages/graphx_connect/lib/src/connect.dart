@@ -4,7 +4,7 @@ import 'dart:typed_data';
 import 'protocol.dart';
 import 'transport.dart';
 
-/// One session found by [GLocalConnect.discover].
+/// One session found by a transport discovery operation.
 final class GSessionInfo {
   const GSessionInfo._({
     required this.id,

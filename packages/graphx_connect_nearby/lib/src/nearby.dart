@@ -72,9 +72,11 @@ final class GNearby {
     );
   }
 
-  /// Releases native/runtime resources when this connector was used only for
-  /// discovery and no [GSession] was created. Connected sessions own and
-  /// dispose the transport themselves.
+  /// Releases connector-owned native resources when discovery is abandoned
+  /// without creating a [GSession].
+  ///
+  /// A connected [GSession] owns its transport lifecycle and is disposed
+  /// through [GSession.dispose] instead.
   Future<void> dispose() => _transport.dispose();
 
   void _ensureSupported() {
