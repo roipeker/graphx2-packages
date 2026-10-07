@@ -18,6 +18,11 @@ abstract interface class GConnectTransport {
   Future<GTransportConnection> connect(Object endpoint);
 }
 
+/// Optional lifecycle hook for transports that own native/runtime state.
+abstract interface class GDisposableTransport {
+  Future<void> dispose();
+}
+
 abstract interface class GTransportHost {
   Stream<GTransportConnection> get connections;
   Future<void> dispose();
